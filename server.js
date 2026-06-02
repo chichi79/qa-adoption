@@ -119,8 +119,13 @@ app.get('/api/meta', (req, res) => {
     ok: true,
     vercel: isVercel,
     limits: isVercel
-      ? { maxBatchPages: 5, mobileDefault: false, note: '점검 완료까지 최대 약 60초. run 기록은 임시 저장됩니다.' }
-      : { maxBatchPages: 50, mobileDefault: true, note: null },
+      ? {
+          maxBatchPages: 5,
+          mobileDefault: false,
+          mobileSupported: true,
+          note: '클라우드: 모바일 선택 시 데스크톱+모바일 점검(최대 약 60초). run 기록은 임시 저장됩니다.',
+        }
+      : { maxBatchPages: 50, mobileDefault: true, mobileSupported: true, note: null },
   });
 });
 

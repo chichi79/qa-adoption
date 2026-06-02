@@ -1041,6 +1041,9 @@ async function loadDeployBanner() {
     el.textContent =
       data.limits?.note ||
       '클라우드 배포 모드: 점검이 끝날 때까지 기다려 주세요(최대 약 60초). 이전 점검 기록은 서버 재시작 시 사라질 수 있습니다.';
+    if (data.limits?.mobileDefault === false) {
+      $('input-mobile').checked = false;
+    }
   } catch (_) {
     /* optional */
   }
