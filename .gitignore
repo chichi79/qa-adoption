@@ -1,0 +1,11 @@
+node_modules/
+_backup/
+uploads/
+test-results/
+playwright-report/
+data/runs/*
+!data/runs/.gitkeep
+.env
+.env.local
+.vercel
+*.log

@@ -1,0 +1,2 @@
+# CheckGate CI 점검 대상 URL (한 줄에 하나)
+https://example.com

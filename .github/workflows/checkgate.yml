@@ -1,0 +1,32 @@
+name: CheckGate
+
+on:
+  schedule:
+    - cron: '0 1 * * 1'
+  workflow_dispatch:
+    inputs:
+      urls_file:
+        description: 'Repo 내 URL 목록 파일 경로'
+        default: 'checkgate-urls.example.txt'
+      max_pages:
+        description: 'Sitemap 최대 페이지 수'
+        default: '20'
+
+jobs:
+  checkgate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run CheckGate CI
+        run: node scripts/ci-check.js --urls "${{ github.event.inputs.urls_file || 'checkgate-urls.example.txt' }}" --max-pages "${{ github.event.inputs.max_pages || '20' }}"

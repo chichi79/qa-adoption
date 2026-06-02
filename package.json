@@ -1,0 +1,25 @@
+{
+  "name": "qa-adoption",
+  "version": "1.0.0",
+  "description": "URL 기본 점검 툴 (Playwright CDP) — 로드·JS오류·링크·네트워크",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "ci": "node scripts/ci-check.js",
+    "postinstall": "node -e \"if(!process.env.VERCEL){require('child_process').execSync('npx playwright install chromium',{stdio:'inherit'})}\""
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "^131.0.1",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "mammoth": "^1.8.0",
+    "multer": "^1.4.5-lts.1",
+    "pdf-parse": "^1.1.1",
+    "playwright": "^1.49.0",
+    "playwright-core": "^1.49.0"
+  }
+}

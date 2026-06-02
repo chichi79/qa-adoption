@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QA 테스트 자동화</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>QA 테스트 자동화</h1>
+      <p class="subtitle">대상 URL과 테스트 시나리오를 입력한 뒤 실행하세요.</p>
+    </header>
+
+    <main class="main">
+      <section class="card">
+        <h2>1. 대상 페이지</h2>
+        <label for="target-url">URL</label>
+        <div class="url-row">
+          <input type="url" id="target-url" placeholder="https://example.com 또는 http://localhost:3000" />
+          <button type="button" class="btn btn-primary" id="btn-auto-discover">자동 스텝 생성</button>
+        </div>
+        <p class="help-text url-option">
+          <label class="checkbox-label">
+            <input type="checkbox" id="auto-tc-on-url" />
+            <span>대상 URL 확정 시 자동으로 TC 생성 (QA 자동 분석)</span>
+          </label>
+        </p>
+        <p class="help-text">자동 스텝 생성: URL만 입력 후 클릭하면 페이지를 분석해 input → fill, 버튼 → click, 링크 5개 클릭 순으로 스텝을 만듭니다.</p>
+      </section>
+
+      <section class="card">
+        <h2>2. 테스트 케이스 생성</h2>
+        <div class="tabs">
+          <button type="button" class="tab active" data-tab="wizard">스텝 위저드</button>
+          <button type="button" class="tab" data-tab="upload">기획서 업로드</button>
+          <button type="button" class="tab" data-tab="natural">스크립트(DSL) 입력</button>
+        </div>
+        <div id="panel-wizard" class="panel active">
+          <p class="help-text">한 스텝씩 액션을 선택하고 값을 입력한 뒤 <strong>스텝 추가</strong>를 누르세요.</p>
+          <div class="wizard-form">
+            <label>액션</label>
+            <select id="wizard-action">
+              <option value="goto">페이지 이동 (goto)</option>
+              <option value="fill">입력 (fill)</option>
+              <option value="click">클릭 (click)</option>
+              <option value="wait">대기 (wait)</option>
+              <option value="waitFor">조건 대기 (요소/텍스트 나타날 때까지)</option>
+              <option value="screenshot">화면 캡처 (screenshot)</option>
+            </select>
+            <div id="wizard-fields-goto" class="wizard-fields">
+              <label for="wizard-url">URL (비우면 대상 페이지 URL 사용)</label>
+              <input type="text" id="wizard-url" placeholder="https://example.com 또는 /login" />
+            </div>
+            <div id="wizard-fields-fill" class="wizard-fields" style="display:none;">
+              <label for="wizard-fill-field">필드</label>
+              <select id="wizard-fill-field">
+                <option value="아이디">아이디</option>
+                <option value="비밀번호">비밀번호</option>
+                <option value="이메일">이메일</option>
+                <option value="selector">기타 (selector 직접 입력)</option>
+              </select>
+              <label for="wizard-fill-selector" id="label-wizard-fill-selector" style="display:none;">CSS selector</label>
+              <input type="text" id="wizard-fill-selector" placeholder="input#email" style="display:none;" />
+              <label for="wizard-fill-value">값</label>
+              <input type="text" id="wizard-fill-value" placeholder="입력할 값" />
+              <button type="button" class="btn btn-secondary btn-picker" id="btn-picker-fill">요소 선택 (픽커)</button>
+            </div>
+            <div id="wizard-fields-click" class="wizard-fields" style="display:none;">
+              <label for="wizard-click-type">찾기 방식</label>
+              <select id="wizard-click-type">
+                <option value="text">버튼/링크 텍스트</option>
+                <option value="selector">CSS selector</option>
+              </select>
+              <label for="wizard-click-text" id="label-wizard-click-text">텍스트 (화면에 보이는 글자)</label>
+              <input type="text" id="wizard-click-text" placeholder="예: 로그인, 제출, 더보기" />
+              <label for="wizard-click-selector" id="label-wizard-click-selector" style="display:none;">CSS selector</label>
+              <input type="text" id="wizard-click-selector" placeholder="button.btn-primary" style="display:none;" />
+              <button type="button" class="btn btn-secondary btn-picker" id="btn-picker-click">요소 선택 (픽커)</button>
+            </div>
+            <div id="wizard-fields-wait" class="wizard-fields" style="display:none;">
+              <label for="wizard-wait-sec">대기 시간 (초)</label>
+              <input type="number" id="wizard-wait-sec" min="1" max="30" value="2" />
+            </div>
+            <div id="wizard-fields-waitFor" class="wizard-fields" style="display:none;">
+              <label for="wizard-waitFor-type">찾기 방식</label>
+              <select id="wizard-waitFor-type">
+                <option value="text">텍스트가 보일 때까지</option>
+                <option value="selector">요소(CSS selector)가 보일 때까지</option>
+              </select>
+              <label for="wizard-waitFor-text" id="label-wizard-waitFor-text">표시될 텍스트</label>
+              <input type="text" id="wizard-waitFor-text" placeholder="예: 로딩 완료, 메인 메뉴" />
+              <label for="wizard-waitFor-selector" id="label-wizard-waitFor-selector" style="display:none;">CSS selector</label>
+              <input type="text" id="wizard-waitFor-selector" placeholder="예: .content-loaded, #main" style="display:none;" />
+              <label for="wizard-waitFor-timeout">최대 대기 시간 (초)</label>
+              <input type="number" id="wizard-waitFor-timeout" min="1" max="60" value="15" />
+            </div>
+            <div id="wizard-fields-screenshot" class="wizard-fields" style="display:none;">
+              <label for="wizard-screenshot-name">캡처 이름</label>
+              <input type="text" id="wizard-screenshot-name" placeholder="예: 로그인 후 화면" />
+            </div>
+            <div class="wizard-actions">
+              <button type="button" class="btn btn-primary" id="btn-wizard-add">스텝 추가</button>
+              <button type="button" class="btn btn-secondary" id="btn-wizard-clear">스텝 초기화</button>
+            </div>
+          </div>
+          <div class="step-list-wrap">
+            <strong>현재 스텝 (<span id="step-count">0</span>개)</strong>
+            <ul id="step-list"></ul>
+          </div>
+        </div>
+        <div id="panel-upload" class="panel">
+          <label for="spec-file">기획서 파일 (PDF, DOCX, TXT 등)</label>
+          <input type="file" id="spec-file" accept=".pdf,.docx,.doc,.txt,.md" />
+          <button type="button" class="btn btn-secondary" id="btn-upload">업로드 후 TC 추출</button>
+        </div>
+        <div id="panel-natural" class="panel">
+          <label for="natural-input">가벼운 스크립트(DSL)로 시나리오 작성 (여러 케이스는 빈 줄 + <code>---</code> 로 구분)</label>
+          <p class="help-text">
+            예) <code>입력: 아이디=testuser, 비밀번호=password123</code>,
+            <code>클릭: [로그인]</code>,
+            <code>화면캡처: 로그인 성공 화면</code>
+          </p>
+          <textarea
+            id="natural-input"
+            rows="8"
+            placeholder="예: 케이스별 시나리오를 작성해 주세요."
+          >케이스 1) 로그인 성공 시나리오
+로그인 폼에서 아이디 testuser, 비밀번호 password123 입력 후 로그인 버튼 클릭
+
+---
+
+케이스 2) 로그인 실패 시나리오
+잘못된 비밀번호로 로그인 버튼 클릭 후 &quot;아이디 또는 비밀번호가 잘못되었습니다&quot; 메시지 확인</textarea>
+          <button type="button" class="btn btn-secondary" id="btn-generate">TC 생성</button>
+        </div>
+        <div class="tc-preview" id="tc-preview">
+          <strong>생성된 TC 초안 (아래 JSON을 검토·수정한 뒤 실행하세요)</strong>
+          <textarea
+            id="tc-editor"
+            rows="10"
+            placeholder="TC가 생성되면 여기 JSON 형식으로 표시됩니다. 실행 전에 검토·수정해 주세요."
+          >(아직 없음. 위에서 기획서 업로드 또는 스크립트(DSL) 입력으로 생성)</textarea>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>3. 테스트 실행</h2>
+        <button type="button" class="btn btn-primary" id="btn-run">테스트 실행</button>
+        <div id="run-status" class="status"></div>
+        <div id="run-result" class="result"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>로컬 테스트용 · Playwright 기반</p>
+    </footer>
+  </div>
+
+  <!-- 입력값 수정 모달 (서버 연결과 무관하게 즉시 표시) -->
+  <div id="edit-value-overlay" class="modal-overlay" style="display:none;" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-labelledby="edit-value-title">
+      <h3 id="edit-value-title" class="modal-title">입력값 수정</h3>
+      <label for="edit-value-input">이 스텝에서 입력할 값</label>
+      <input type="text" id="edit-value-input" class="modal-input" placeholder="입력할 값" />
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="edit-value-confirm">확인</button>
+        <button type="button" class="btn btn-secondary" id="edit-value-cancel">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/legacy/app.js"></script>
+</body>
+</html>

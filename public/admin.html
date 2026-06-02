@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CheckGate — Admin</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="runner.css">
+</head>
+<body class="bg-light">
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+    <div class="container-fluid px-3 px-lg-4">
+      <a class="navbar-brand fw-bold" href="/">CheckGate Admin</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navAdmin">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navAdmin">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="/">Runner</a></li>
+          <li class="nav-item"><a class="nav-link active" href="/admin.html">Admin</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container-fluid px-3 px-lg-4 py-4">
+    <p class="text-muted mb-4">FE 개발자용 체크리스트 등록 · 관리</p>
+
+    <div class="row g-4">
+      <aside class="col-lg-3">
+        <div class="card shadow-sm">
+          <div class="card-header bg-white fw-semibold">체크리스트</div>
+          <div class="card-body p-2">
+            <div class="btn-group w-100 mb-3" role="group">
+              <button type="button" class="btn btn-outline-primary admin-tab active" data-kind="basic">기본</button>
+              <button type="button" class="btn btn-outline-primary admin-tab" data-kind="optional">선택</button>
+            </div>
+            <p class="text-muted small px-2" id="kind-help">모든 점검 Run에 자동 적용됩니다.</p>
+            <button type="button" class="btn btn-primary w-100 mb-3" id="btn-new-checklist">+ 새 체크리스트</button>
+            <div class="list-group list-group-flush" id="checklist-nav"></div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="col-lg-9">
+        <div class="card shadow-sm min-vh-50" id="editor-panel">
+          <div class="card-body d-flex align-items-center justify-content-center text-muted py-5">
+            왼쪽에서 체크리스트를 선택하거나 새로 만드세요.
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

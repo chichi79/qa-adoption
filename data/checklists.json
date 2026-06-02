@@ -1,0 +1,114 @@
+{
+  "checklists": [
+    {
+      "id": "basic-fe",
+      "name": "기본 FE 점검",
+      "description": "모든 점검 Run에 자동 적용됩니다.",
+      "kind": "basic",
+      "active": true,
+      "items": [
+        {
+          "id": "page-load",
+          "title": "페이지 정상 로드",
+          "criteria": "점검 URL이 HTTP 오류 없이 로드되어야 함",
+          "severity": "blocker",
+          "inspectType": "playwright",
+          "config": {
+            "check": "page_load"
+          }
+        },
+        {
+          "id": "no-console-error",
+          "title": "콘솔 에러 없음",
+          "criteria": "페이지 로드 후 console.error가 발생하지 않아야 함",
+          "severity": "blocker",
+          "inspectType": "playwright",
+          "config": {
+            "check": "no_console_error"
+          }
+        },
+        {
+          "id": "page-title",
+          "title": "페이지 title 존재",
+          "criteria": "document.title이 비어 있지 않아야 함",
+          "severity": "major",
+          "inspectType": "playwright",
+          "config": {
+            "check": "page_title"
+          }
+        },
+        {
+          "id": "no-console-log",
+          "title": "console.log 미사용 (변경 코드)",
+          "criteria": "PR diff에 console.log가 포함되지 않아야 함",
+          "severity": "minor",
+          "inspectType": "ai_code",
+          "config": {
+            "rule": "no_console_log"
+          }
+        },
+        {
+          "id": "no-explicit-any",
+          "title": "any 타입 지양 (변경 TS)",
+          "criteria": "변경된 TypeScript 파일에 `: any` 또는 `as any`가 없어야 함",
+          "severity": "major",
+          "inspectType": "ai_code",
+          "config": {
+            "rule": "no_explicit_any"
+          }
+        },
+        {
+          "id": "visual-review",
+          "title": "레이아웃·UI 육안 확인",
+          "criteria": "깨진 레이아웃, 겹침, 잘린 텍스트가 없어야 함",
+          "severity": "major",
+          "inspectType": "manual"
+        }
+      ]
+    },
+    {
+      "id": "optional-login",
+      "name": "로그인 페이지",
+      "description": "로그인·인증 화면 점검 시 선택하세요.",
+      "kind": "optional",
+      "active": true,
+      "urlHint": "**/login**",
+      "items": [
+        {
+          "id": "login-form",
+          "title": "로그인 폼 존재",
+          "criteria": "password input 또는 로그인 submit 버튼이 있어야 함",
+          "severity": "blocker",
+          "inspectType": "playwright",
+          "config": {
+            "check": "login_form"
+          }
+        },
+        {
+          "id": "login-error-ui",
+          "title": "로그인 실패 UI (수동)",
+          "criteria": "잘못된 계정 입력 시 사용자에게 오류 메시지가 표시되어야 함",
+          "severity": "major",
+          "inspectType": "manual"
+        }
+      ]
+    },
+    {
+      "id": "optional-checkout",
+      "name": "결제·체크아웃",
+      "description": "결제 플로우 점검 시 선택하세요.",
+      "kind": "optional",
+      "active": true,
+      "urlHint": "**/checkout**",
+      "items": [
+        {
+          "id": "checkout-form",
+          "title": "주문 요약 영역 존재",
+          "criteria": "결제 페이지에 주문/금액 요약 UI가 보여야 함",
+          "severity": "major",
+          "inspectType": "manual"
+        }
+      ]
+    }
+  ]
+}
