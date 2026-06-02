@@ -774,7 +774,11 @@ async function startInspect() {
     startPolling();
     loadRecentRuns();
   } catch (err) {
-    setStatus(err.message, 'error');
+    const msg =
+      err.name === 'AbortError'
+        ? '점검 시간이 초과되었습니다. 다시 시도해 주세요.'
+        : err.message || '점검 요청 실패';
+    setStatus(msg, 'error');
     $('progress-section').hidden = true;
   } finally {
     $('btn-start').disabled = false;
