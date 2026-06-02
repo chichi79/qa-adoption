@@ -2,14 +2,29 @@
   "version": 2,
   "installCommand": "npm install",
   "buildCommand": "echo checkgate",
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" }
-  ],
   "functions": {
     "api/index.js": {
       "maxDuration": 60,
       "memory": 2048,
       "includeFiles": "node_modules/@sparticuz/chromium/**"
+    },
+    "api/runs.js": {
+      "maxDuration": 60,
+      "memory": 2048,
+      "includeFiles": "node_modules/@sparticuz/chromium/**"
+    },
+    "api/runs/[...slug].js": {
+      "maxDuration": 60,
+      "memory": 2048,
+      "includeFiles": "node_modules/@sparticuz/chromium/**"
+    },
+    "api/checks.js": {
+      "maxDuration": 15,
+      "memory": 512
+    },
+    "api/meta.js": {
+      "maxDuration": 10,
+      "memory": 256
     }
   }
 }

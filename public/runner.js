@@ -2,6 +2,15 @@ const API = '/api';
 
 const $ = (id) => document.getElementById(id);
 
+function fetchWithTimeout(url, options = {}, ms = 15000) {
+  if (typeof AbortController === 'undefined') {
+    return fetch(url, options);
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 const CATEGORY_ORDER = [
   'runtime',
   'performance',
@@ -135,7 +144,8 @@ function renderChecksList(checks, searchQuery = '') {
 
 async function loadChecksList() {
   try {
-    const res = await fetch(`${API}/checks`);
+    const res = await fetchWithTimeout(`${API}/checks`, {}, 15000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     allChecks = data.checks || [];
     updateCheckCounts(allChecks.length);
@@ -718,12 +728,15 @@ async function startInspect() {
   $('progress-label').textContent = '점검 중…';
 
   try {
-    const res = await fetch(`${API}/runs`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(getPayload()),
-      signal: AbortSignal.timeout(120000),
-    });
+    const res = await fetchWithTimeout(
+      `${API}/runs`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(getPayload()),
+      },
+      120000,
+    );
     const data = await res.json();
     if (!data.ok) {
       setStatus((data.errors || [data.error]).join(' '), 'error');
@@ -816,7 +829,8 @@ function highlightRecentRun(runId) {
 
 async function loadRecentRuns() {
   try {
-    const res = await fetch(`${API}/runs?limit=8`);
+    const res = await fetchWithTimeout(`${API}/runs?limit=8`, {}, 10000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const activeId = currentRunId || new URLSearchParams(location.search).get('run');
     $('recent-runs').innerHTML =
@@ -846,7 +860,8 @@ async function loadRecentRuns() {
         })
         .join('') || '<li class="empty-msg">아직 없음</li>';
   } catch (_) {
-    $('recent-runs').innerHTML = '<li class="empty-msg text-danger">로드 실패</li>';
+    $('recent-runs').innerHTML =
+      '<li class="empty-msg">최근 점검 없음 (클라우드는 재배포 시 기록이 사라질 수 있음)</li>';
   }
 }
 
@@ -946,7 +961,7 @@ $('input-url').addEventListener('keydown', (e) => {
 
 async function loadDeployBanner() {
   try {
-    const res = await fetch(`${API}/meta`);
+    const res = await fetchWithTimeout(`${API}/meta`, {}, 8000);
     const data = await res.json();
     if (!data.ok || !data.vercel) return;
     const el = $('deploy-banner');
