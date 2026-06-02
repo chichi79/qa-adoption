@@ -1,4 +1,6 @@
 /** GET 목록 · POST 점검 (Express 위임 없이 — Vercel async 대기 보장) */
+require('../lib/paths');
+
 async function readJsonBody(req) {
   if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
     return req.body;

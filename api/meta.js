@@ -7,7 +7,7 @@ module.exports = (req, res) => {
   res.status(200).json({
     ok: true,
     vercel: isVercel,
-    browserFix: 'headless-bool-v2',
+    browserFix: 'libnss-al2023-v3',
     deployRev: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || null,
     limits: isVercel
       ? { maxBatchPages: 5, mobileDefault: false, note: '점검 완료까지 최대 약 60초. run 기록은 임시 저장됩니다.' }
