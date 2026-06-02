@@ -3,7 +3,7 @@
   "installCommand": "npm install",
   "buildCommand": "echo checkgate",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api" }
+    { "source": "/api/(.*)", "destination": "/api" }
   ],
   "functions": {
     "api/index.js": {

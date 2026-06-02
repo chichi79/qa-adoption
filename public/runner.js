@@ -109,37 +109,28 @@ function renderChecksList(checks, searchQuery = '') {
   }
 
   const groups = groupByCategory(filtered, 'category');
-  $('checks-list').innerHTML = `
-    <div class="accordion accordion-flush" id="checks-accordion">
-      ${groups
-        .map(
-          (g, idx) => `
-        <div class="accordion-item">
-          <h2 class="accordion-header">
-            <button class="accordion-button ${idx === 0 ? '' : 'collapsed'}" type="button"
-              data-bs-toggle="collapse" data-bs-target="#checks-cat-${g.category}">
-              ${categoryLabel(g.category)}
-              <span class="chip ms-2" style="font-size:0.65rem;padding:0.1rem 0.4rem">${g.items.length}</span>
-            </button>
-          </h2>
-          <div id="checks-cat-${g.category}" class="accordion-collapse collapse ${idx === 0 ? 'show' : ''}"
-            data-bs-parent="#checks-accordion">
-            <div class="accordion-body">
-              ${g.items
-                .map(
-                  (c) => `
-                <div class="check-item-row">
-                  <div class="check-name">${escapeHtml(c.title)}</div>
-                  <div class="check-desc">${escapeHtml(c.description)}</div>
-                </div>`,
-                )
-                .join('')}
-            </div>
-          </div>
-        </div>`,
-        )
-        .join('')}
-    </div>`;
+  $('checks-list').innerHTML = groups
+    .map(
+      (g, idx) => `
+      <details class="checks-details" ${idx === 0 ? 'open' : ''}>
+        <summary class="checks-summary">
+          ${categoryLabel(g.category)}
+          <span class="chip">${g.items.length}</span>
+        </summary>
+        <div class="checks-details-body">
+          ${g.items
+            .map(
+              (c) => `
+            <div class="check-item-row">
+              <div class="check-name">${escapeHtml(c.title)}</div>
+              <div class="check-desc">${escapeHtml(c.description)}</div>
+            </div>`,
+            )
+            .join('')}
+        </div>
+      </details>`,
+    )
+    .join('');
 }
 
 async function loadChecksList() {
@@ -717,7 +708,8 @@ async function startInspect() {
   autoFilterApplied = false;
   resultFilter = 'all';
   $('filter-all').checked = true;
-  setStatus('점검을 시작합니다…', 'loading');
+  const onCloud = $('deploy-banner') && !$('deploy-banner').hidden;
+  setStatus(onCloud ? '점검 중입니다… (클라우드에서는 최대 1분 걸릴 수 있습니다)' : '점검을 시작합니다…', 'loading');
   $('progress-section').hidden = false;
   $('results-section').hidden = true;
   $('insights-panel').hidden = true;
@@ -730,6 +722,7 @@ async function startInspect() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(getPayload()),
+      signal: AbortSignal.timeout(120000),
     });
     const data = await res.json();
     if (!data.ok) {
