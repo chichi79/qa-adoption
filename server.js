@@ -5,16 +5,13 @@ const os = require('os');
 const { spawn } = require('child_process');
 const express = require('express');
 const cors = require('cors');
-const multer = require('multer');
-const { runPlaywright } = require('./lib/playwright-runner');
-const { runElementPicker } = require('./lib/element-picker');
-const { discoverStepsFromUrl } = require('./lib/auto-discover-steps');
-const { generateFromNaturalLanguageMulti, generateFromSpecContent } = require('./lib/tc-generator');
-const { extractTextFromFile } = require('./lib/extract-spec-text');
+const { isVercel, ensureDataDirs, UPLOADS_DIR } = require('./lib/paths');
 const { buildPreview, startRun } = require('./lib/inspect-worker');
 const { getRun, listRuns, listComparableRuns, getRunTrend, getRunMatchKey } = require('./lib/run-store');
 const { diffRuns, diffBatchPages } = require('./lib/run-diff');
 const { BUILTIN_CHECKS } = require('./lib/url-inspector');
+
+ensureDataDirs();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -107,13 +104,6 @@ async function ensureEdgeDebugSession() {
     console.warn('[CDP] Edge 디버깅 모드 자동 실행에 실패했습니다:', err.message || err);
   }
 }
-
-// 업로드 디렉터리 (기획서 업로드용)
-const uploadDir = path.join(__dirname, 'uploads');
-const upload = multer({
-  dest: uploadDir,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-});
 
 app.use(cors());
 app.use(express.json());
@@ -241,6 +231,20 @@ app.get('/api/runs/:id/screenshot', (req, res) => {
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// Legacy TC API — 로컬 전용 (Vercel에서는 playwright 전체 패키지 로드 방지)
+if (!isVercel) {
+  const multer = require('multer');
+  const { runPlaywright } = require('./lib/playwright-runner');
+  const { runElementPicker } = require('./lib/element-picker');
+  const { discoverStepsFromUrl } = require('./lib/auto-discover-steps');
+  const { generateFromNaturalLanguageMulti, generateFromSpecContent } = require('./lib/tc-generator');
+  const { extractTextFromFile } = require('./lib/extract-spec-text');
+
+  const upload = multer({
+    dest: UPLOADS_DIR,
+    limits: { fileSize: 10 * 1024 * 1024 },
+  });
 
 // 기획서 업로드 → TC 추출 (TXT/MD 직접 파싱, PDF/DOCX는 텍스트 추출 후 파싱)
 app.post('/api/upload-spec', upload.single('file'), async (req, res) => {
@@ -382,13 +386,7 @@ app.post('/api/run-test', async (req, res) => {
   }
 });
 
-// 서버 시작 전 uploads 폴더 생성
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const { isVercel, ensureDataDirs } = require('./lib/paths');
-ensureDataDirs();
+} // end !isVercel legacy routes
 
 module.exports = app;
 

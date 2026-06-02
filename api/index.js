@@ -1,6 +1,18 @@
 /**
- * Vercel serverless entry — Express 앱 전체를 한 함수로 서빙
+ * Vercel serverless entry — CheckGate Express (Legacy TC 라우트 제외)
  */
-const app = require('../server');
-
-module.exports = app;
+try {
+  module.exports = require('../server');
+} catch (err) {
+  console.error('[api] server load failed:', err);
+  const express = require('express');
+  const fail = express();
+  fail.all('*', (_req, res) => {
+    res.status(500).json({
+      ok: false,
+      error: 'Server failed to start',
+      message: err.message,
+    });
+  });
+  module.exports = fail;
+}
