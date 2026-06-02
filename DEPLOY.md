@@ -43,8 +43,8 @@ git push -u origin main
    - **Output Directory**: (비움 — API가 정적+API 모두 처리)
 4. **Deploy**
 
-`vercel.json`이 함수 타임아웃(60초)·메모리(3008MB)를 지정합니다.  
-Pro 플랜이면 대시보드에서 **Function Max Duration**을 120~300초로 늘릴 수 있습니다.
+`vercel.json`이 함수 타임아웃(60초)·메모리(**2048MB**, Hobby 상한)를 지정합니다.  
+Pro(Team) 플랜이면 메모리·실행 시간을 더 늘릴 수 있습니다.
 
 ---
 
