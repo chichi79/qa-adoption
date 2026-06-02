@@ -23,6 +23,7 @@ const CATEGORY_ORDER = [
 
 let currentRunId = null;
 let pollTimer = null;
+let pollMissCount = 0;
 let lastRun = null;
 let batchViewRun = null;
 let allChecks = [];
@@ -737,6 +738,18 @@ async function startInspect() {
       },
       120000,
     );
+    if (!res.ok) {
+      let msg = `서버 오류 (HTTP ${res.status})`;
+      try {
+        const errBody = await res.json();
+        msg = (errBody.errors || [errBody.error]).filter(Boolean).join(' ') || msg;
+      } catch (_) {
+        /* non-JSON */
+      }
+      setStatus(msg, 'error');
+      $('progress-section').hidden = true;
+      return;
+    }
     const data = await res.json();
     if (!data.ok) {
       setStatus((data.errors || [data.error]).join(' '), 'error');
@@ -745,6 +758,18 @@ async function startInspect() {
     }
     currentRunId = data.runId;
     history.replaceState(null, '', `?run=${data.runId}`);
+
+    if (data.run) {
+      cacheRunLocally(data.run);
+      renderLogs(data.run.logs);
+    }
+
+    if (data.run && (data.run.status === 'completed' || data.run.status === 'failed')) {
+      await applyFinishedRun(data.run);
+      loadRecentRuns();
+      return;
+    }
+
     setStatus('점검 중입니다…', 'loading');
     startPolling();
     loadRecentRuns();
@@ -763,53 +788,95 @@ function renderLogs(logs) {
     .join('');
 }
 
+function cacheRunLocally(run) {
+  if (!run?.id) return;
+  try {
+    sessionStorage.setItem(`cg-run-${run.id}`, JSON.stringify(run));
+  } catch (_) {
+    /* quota */
+  }
+}
+
+function loadCachedRun(runId) {
+  try {
+    const raw = sessionStorage.getItem(`cg-run-${runId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function applyFinishedRun(run) {
+  stopPolling();
+  $('spinner').hidden = true;
+  $('progress-label').textContent = run.status === 'completed' ? '완료' : '실패';
+  const failCount = run.type === 'batch' ? run.summary?.failPages || 0 : run.summary?.fail || 0;
+  if (failCount > 0 && !autoFilterApplied && run.type !== 'batch') {
+    autoFilterApplied = true;
+    resultFilter = 'fail';
+    $('filter-fail').checked = true;
+  }
+  renderResults(run);
+  if (run.type === 'batch') {
+    const detailId = new URLSearchParams(location.search).get('detail');
+    if (detailId) await openPageDetail(detailId);
+    setStatus(
+      run.summary?.failPages
+        ? `완료 — ${run.summary.failPages}페이지 실패`
+        : '완료 — 배치 점검 완료',
+      run.summary?.failPages ? 'error' : 'success',
+    );
+  } else {
+    setStatus(
+      run.status === 'completed'
+        ? failCount
+          ? `${failCount}개 항목 실패`
+          : '모든 항목 통과'
+        : run.error || '점검 실패',
+      failCount ? 'error' : 'success',
+    );
+  }
+}
+
 async function pollRun() {
   if (!currentRunId) return;
   try {
-    const res = await fetch(`${API}/runs/${currentRunId}`);
+    const res = await fetchWithTimeout(`${API}/runs/${currentRunId}`, {}, 15000);
     const data = await res.json();
-    if (!data.ok) return;
+    if (!data.ok || !data.run) {
+      pollMissCount += 1;
+      const cached = loadCachedRun(currentRunId);
+      if (cached && (cached.status === 'completed' || cached.status === 'failed')) {
+        renderLogs(cached.logs);
+        await applyFinishedRun(cached);
+        return;
+      }
+      if (pollMissCount >= 6) {
+        stopPolling();
+        $('spinner').hidden = true;
+        setStatus(
+          '점검 결과를 서버에서 찾지 못했습니다. 같은 탭에서 점검을 다시 시도해 주세요.',
+          'error',
+        );
+      }
+      return;
+    }
+    pollMissCount = 0;
     const run = data.run;
+    cacheRunLocally(run);
     renderLogs(run.logs);
 
     if (run.status === 'completed' || run.status === 'failed') {
-      stopPolling();
-      $('spinner').hidden = true;
-      $('progress-label').textContent = run.status === 'completed' ? '완료' : '실패';
-      const failCount = run.type === 'batch' ? run.summary?.failPages || 0 : run.summary?.fail || 0;
-      if (failCount > 0 && !autoFilterApplied && run.type !== 'batch') {
-        autoFilterApplied = true;
-        resultFilter = 'fail';
-        $('filter-fail').checked = true;
-      }
-      renderResults(run);
-      if (run.type === 'batch') {
-        const detailId = new URLSearchParams(location.search).get('detail');
-        if (detailId) await openPageDetail(detailId);
-        setStatus(
-          run.summary?.failPages
-            ? `완료 — ${run.summary.failPages}페이지 실패`
-            : '완료 — 배치 점검 완료',
-          run.summary?.failPages ? 'error' : 'success',
-        );
-      } else {
-        setStatus(
-          run.status === 'completed'
-            ? failCount
-              ? `${failCount}개 항목 실패`
-              : '모든 항목 통과'
-            : run.error || '점검 실패',
-          failCount ? 'error' : 'success',
-        );
-      }
+      await applyFinishedRun(run);
     }
   } catch (_) {
-    /* retry */
+    pollMissCount += 1;
   }
 }
 
 function startPolling() {
   stopPolling();
+  pollMissCount = 0;
   pollTimer = setInterval(pollRun, 1000);
   pollRun();
 }
@@ -873,10 +940,11 @@ async function openRunFromQuery() {
 
   currentRunId = runId;
   $('progress-section').hidden = false;
-  const res = await fetch(`${API}/runs/${runId}`);
+  const res = await fetchWithTimeout(`${API}/runs/${runId}`, {}, 15000);
   const data = await res.json();
-  if (!data.ok || !data.run) return;
-  const run = data.run;
+  let run = data.ok && data.run ? data.run : loadCachedRun(runId);
+  if (!run) return;
+  if (data.run) cacheRunLocally(run);
 
   if (run.type === 'batch') {
     batchViewRun = run;
