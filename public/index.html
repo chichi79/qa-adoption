@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CheckGate</title>
-  <link rel="stylesheet" href="/runner.css?v=7">
+  <link rel="stylesheet" href="/runner.css?v=10">
 </head>
 <body>
   <header class="site-header">
@@ -13,7 +13,10 @@
         <span class="site-logo">CheckGate</span>
         <span class="chip" id="nav-check-count">51항목</span>
       </div>
-      <a class="site-link" href="/legacy/index.html">Legacy</a>
+      <nav class="site-nav">
+        <a class="site-link" href="/admin.html">체크리스트</a>
+        <a class="site-link" href="/legacy/index.html">Legacy</a>
+      </nav>
     </div>
   </header>
 
@@ -23,8 +26,17 @@
         <section class="panel panel-input">
           <h1 class="panel-title">점검 시작</h1>
           <p class="panel-desc">
-            단일 URL · URL 목록 · sitemap 크롤. 데스크톱+모바일, 이전 점검과 비교·추이.
+            표준 공정에 따라 URL을 점검하고, 오류를 한 화면(대시보드)에서 정리합니다.
+            팀의 점검 경험은 체크리스트로 쌓여 자동 점검으로 이어집니다.
           </p>
+
+          <div class="process-flow" id="process-flow" aria-label="표준 점검 공정">
+            <div class="process-step" data-step="1"><span class="process-num">1</span><span class="process-label">URL·세트</span></div>
+            <div class="process-step" data-step="2"><span class="process-num">2</span><span class="process-label">자동 점검</span></div>
+            <div class="process-step" data-step="3"><span class="process-num">3</span><span class="process-label">오류 대시보드</span></div>
+            <div class="process-step" data-step="4"><span class="process-num">4</span><span class="process-label">이전과 비교</span></div>
+            <div class="process-step" data-step="5"><span class="process-num">5</span><span class="process-label">기록·CI</span></div>
+          </div>
 
           <div class="mode-tabs" role="tablist">
             <input type="radio" class="btn-check" name="inspect-mode" id="mode-single" value="single" checked />
@@ -36,13 +48,13 @@
           </div>
 
           <div id="panel-single" class="mode-panel">
-            <input type="url" class="form-control url-field mb-2" id="input-url" placeholder="https://example.com" autocomplete="url" />
+            <input type="text" class="form-control url-field mb-2" id="input-url" value="https://" placeholder="https://example.com" autocomplete="url" inputmode="url" spellcheck="false" />
           </div>
           <div id="panel-list" class="mode-panel" hidden>
-            <textarea class="form-control url-list-field" id="input-url-list" rows="5" placeholder="https://example.com&#10;https://example.com/about"></textarea>
+            <textarea class="form-control url-list-field" id="input-url-list" rows="5" spellcheck="false">https://</textarea>
           </div>
           <div id="panel-sitemap" class="mode-panel" hidden>
-            <input type="url" class="form-control url-field mb-2" id="input-sitemap-seed" placeholder="https://example.com" />
+            <input type="text" class="form-control url-field mb-2" id="input-sitemap-seed" value="https://" placeholder="https://example.com" autocomplete="url" inputmode="url" spellcheck="false" />
             <div class="d-flex align-items-center gap-2">
               <label class="small text-muted mb-0" for="input-max-pages">최대 페이지</label>
               <input type="number" class="form-control form-control-sm" id="input-max-pages" value="20" min="1" max="50" style="width:5rem" />
@@ -78,6 +90,16 @@
           </div>
 
           <div id="summary-strip" class="summary-strip"></div>
+
+          <section class="panel panel-dashboard" id="issue-dashboard-panel" hidden>
+            <div class="panel-head panel-head-split">
+              <div>
+                <h2 class="panel-title mb-1">오류 대시보드</h2>
+                <p class="panel-desc mb-0">동작 오류·코드·성능·보안·접근성을 한곳에서 확인</p>
+              </div>
+            </div>
+            <div id="issue-dashboard" class="issue-dashboard"></div>
+          </section>
 
           <div id="insights-panel" class="insights-panel" hidden>
             <section class="insights-section">
@@ -158,6 +180,17 @@
             </div>
           </section>
 
+          <section class="panel panel-experience">
+            <div class="panel-head">
+              <h2 class="panel-title mb-0">경험 → 자동화</h2>
+            </div>
+            <p class="experience-desc">동료의 점검 기준(체크리스트)이 모이면 URL 자동 점검·CI로 연결됩니다.</p>
+            <div id="experience-checklists" class="experience-list">
+              <p class="empty-msg mb-0">불러오는 중…</p>
+            </div>
+            <a class="btn-experience-admin" href="/admin.html">체크리스트 관리</a>
+          </section>
+
           <section class="panel mt-4">
             <div class="panel-head">
               <h2 class="panel-title mb-0">최근 점검</h2>
@@ -171,6 +204,6 @@
     </div>
   </main>
 
-  <script src="/runner.js?v=ui-v15"></script>
+  <script src="/runner.js?v=ui-v19"></script>
 </body>
 </html>

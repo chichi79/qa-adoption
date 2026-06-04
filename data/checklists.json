@@ -109,6 +109,15 @@
           "inspectType": "manual"
         }
       ]
+    },
+    {
+      "id": "basic-9315967c",
+      "name": "새 기본 체크리스트",
+      "description": "",
+      "kind": "basic",
+      "active": true,
+      "urlHint": "",
+      "items": []
     }
   ]
 }

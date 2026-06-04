@@ -10,6 +10,17 @@ const { buildPreview, startRun } = require('./lib/inspect-worker');
 const { getRun, listRuns, listComparableRuns, getRunTrend, getRunMatchKey } = require('./lib/run-store');
 const { diffRuns, diffBatchPages } = require('./lib/run-diff');
 const { BUILTIN_CHECKS } = require('./lib/url-inspector');
+const { buildIssueDashboard } = require('./lib/issue-dashboard');
+const {
+  listChecklists,
+  getChecklist,
+  createChecklist,
+  updateChecklist,
+  deleteChecklist,
+  addItem,
+  updateItem,
+  deleteItem,
+} = require('./lib/checklists');
 
 ensureDataDirs();
 
@@ -129,6 +140,63 @@ app.get('/api/meta', (req, res) => {
   });
 });
 
+app.get('/api/checklists', (req, res) => {
+  try {
+    const kind = req.query.kind || undefined;
+    const includeInactive = req.query.all === '1';
+    res.json({ ok: true, checklists: listChecklists({ kind, includeInactive }) });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post('/api/checklists', (req, res) => {
+  try {
+    const checklist = createChecklist(req.body || {});
+    res.status(201).json({ ok: true, checklist });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get('/api/checklists/:id', (req, res) => {
+  const checklist = getChecklist(req.params.id);
+  if (!checklist) return res.status(404).json({ ok: false, error: '체크리스트 없음' });
+  res.json({ ok: true, checklist });
+});
+
+app.put('/api/checklists/:id', (req, res) => {
+  const checklist = updateChecklist(req.params.id, req.body || {});
+  if (!checklist) return res.status(404).json({ ok: false, error: '체크리스트 없음' });
+  res.json({ ok: true, checklist });
+});
+
+app.delete('/api/checklists/:id', (req, res) => {
+  if (!deleteChecklist(req.params.id)) {
+    return res.status(404).json({ ok: false, error: '체크리스트 없음' });
+  }
+  res.json({ ok: true });
+});
+
+app.post('/api/checklists/:id/items', (req, res) => {
+  const item = addItem(req.params.id, req.body || {});
+  if (!item) return res.status(404).json({ ok: false, error: '체크리스트 없음' });
+  res.status(201).json({ ok: true, item });
+});
+
+app.put('/api/checklists/:id/items/:itemId', (req, res) => {
+  const item = updateItem(req.params.id, req.params.itemId, req.body || {});
+  if (!item) return res.status(404).json({ ok: false, error: '항목 없음' });
+  res.json({ ok: true, item });
+});
+
+app.delete('/api/checklists/:id/items/:itemId', (req, res) => {
+  if (!deleteItem(req.params.id, req.params.itemId)) {
+    return res.status(404).json({ ok: false, error: '항목 없음' });
+  }
+  res.json({ ok: true });
+});
+
 app.post('/api/runs/preview', (req, res) => {
   try {
     const preview = buildPreview(req.body || {});
@@ -166,6 +234,14 @@ app.get('/api/runs/:id', (req, res) => {
     return res.status(404).json({ ok: false, error: 'Run을 찾을 수 없습니다.' });
   }
   res.json({ ok: true, run });
+});
+
+app.get('/api/runs/:id/dashboard', (req, res) => {
+  const run = getRun(req.params.id);
+  if (!run) {
+    return res.status(404).json({ ok: false, error: 'Run을 찾을 수 없습니다.' });
+  }
+  res.json({ ok: true, dashboard: buildIssueDashboard(run) });
 });
 
 app.get('/api/runs/:id/comparable', (req, res) => {
@@ -396,6 +472,15 @@ app.post('/api/run-test', async (req, res) => {
 module.exports = app;
 
 if (!isVercel && require.main === module) {
+  process.on('unhandledRejection', (reason) => {
+    const msg = reason && reason.message ? reason.message : String(reason);
+    if (/handleJavaScriptDialog|No dialog is showing/i.test(msg)) {
+      console.warn('[Playwright] dialog 처리 경합 (무시):', msg);
+      return;
+    }
+    console.error('Unhandled rejection:', reason);
+  });
+
   ensureEdgeDebugSession().catch((err) => {
     console.warn('[CDP] Edge 디버깅 세션 보장 로직 오류:', err && err.message ? err.message : err);
   });

@@ -32,6 +32,49 @@ let compareSelection = '';
 let resultFilter = 'all';
 let hideSkip = true;
 let autoFilterApplied = false;
+let dashboardLaneFilter = null;
+
+const CATEGORY_TO_LANE = {
+  runtime: 'runtime',
+  performance: 'quality',
+  links: 'quality',
+  html: 'quality',
+  security: 'security',
+  accessibility: 'a11y_seo',
+  seo: 'a11y_seo',
+};
+
+const PROCESS_STEPS = [
+  { id: 1, label: 'URL·세트' },
+  { id: 2, label: '자동 점검' },
+  { id: 3, label: '오류 대시보드' },
+  { id: 4, label: '이전과 비교' },
+  { id: 5, label: '기록·CI' },
+];
+
+function laneForCategory(cat) {
+  return CATEGORY_TO_LANE[cat] || 'quality';
+}
+
+function updateProcessFlow(activeStep) {
+  const flow = $('process-flow');
+  if (!flow) return;
+  flow.querySelectorAll('.process-step').forEach((el) => {
+    const step = Number(el.dataset.step);
+    el.classList.toggle('active', step === activeStep);
+    el.classList.toggle('done', step < activeStep);
+  });
+}
+
+function detectProcessStep() {
+  if ($('results-section') && !$('results-section').hidden) {
+    if ($('insights-panel') && !$('insights-panel').hidden && !$('diff-panel')?.hidden) return 4;
+    if ($('issue-dashboard-panel') && !$('issue-dashboard-panel').hidden) return 3;
+    return 3;
+  }
+  if ($('progress-section') && !$('progress-section').hidden) return 2;
+  return 1;
+}
 
 function escapeHtml(s) {
   return String(s || '')
@@ -156,27 +199,75 @@ async function loadChecksList() {
   }
 }
 
+const URL_PREFIX = 'https://';
+
+function isBareUrlPrefix(v) {
+  const t = (v || '').trim().toLowerCase();
+  return !t || t === 'https://' || t === 'http://';
+}
+
+function normalizeUrlLine(line) {
+  const t = (line || '').trim();
+  if (isBareUrlPrefix(t)) return '';
+  if (/^https?:\/\//i.test(t)) return t;
+  return URL_PREFIX + t.replace(/^\/+/, '');
+}
+
+function normalizeUrlListText(text) {
+  return String(text || '')
+    .split(/\r?\n/)
+    .map((line) => normalizeUrlLine(line))
+    .filter(Boolean)
+    .join('\n');
+}
+
+function readUrlField(id) {
+  return normalizeUrlLine($(id)?.value || '');
+}
+
+function setupUrlInputs() {
+  const fields = ['input-url', 'input-sitemap-seed'];
+  fields.forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    if (!el.value.trim()) el.value = URL_PREFIX;
+    el.addEventListener('focus', () => {
+      if (isBareUrlPrefix(el.value)) {
+        el.value = URL_PREFIX;
+        el.setSelectionRange(URL_PREFIX.length, URL_PREFIX.length);
+      }
+    });
+    el.addEventListener('blur', () => {
+      if (isBareUrlPrefix(el.value)) el.value = URL_PREFIX;
+    });
+  });
+
+  const list = $('input-url-list');
+  if (list && !list.value.trim()) list.value = URL_PREFIX;
+}
+
 function getPayload() {
   const mode = document.querySelector('input[name="inspect-mode"]:checked')?.value || 'single';
   const mobile = $('input-mobile')?.checked !== false;
   if (mode === 'list') {
     return {
       mode: 'list',
-      urlList: $('input-url-list').value,
+      urlList: normalizeUrlListText($('input-url-list').value),
       mobile,
       maxPages: 50,
     };
   }
   if (mode === 'sitemap') {
+    const url = readUrlField('input-sitemap-seed') || readUrlField('input-url');
     return {
       mode: 'sitemap',
-      url: ($('input-sitemap-seed').value || $('input-url').value).trim(),
+      url,
       mobile,
       maxPages: Number($('input-max-pages').value) || 20,
     };
   }
   return {
-    url: $('input-url').value.trim(),
+    url: readUrlField('input-url'),
     mobile,
     mode: 'single',
   };
@@ -367,6 +458,7 @@ async function applyCompare(run) {
       previousAt,
       manual: compareTo !== run.previousRunId,
     });
+    updateProcessFlow(4);
   } catch (_) {
     setStatus('비교 결과를 불러오지 못했습니다.', 'error');
   }
@@ -551,6 +643,7 @@ async function openPageDetail(pageRunId) {
     }
 
     renderResultsList(pageRun);
+    await loadIssueDashboard(pageRun);
     highlightBatchRow(pageRunId);
     await loadInsights(pageRun);
     $('page-detail-summary').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -617,12 +710,162 @@ function renderResultsList(run) {
 
 function matchesResultFilter(r) {
   if (hideSkip && r.status === 'skip') return false;
+  if (dashboardLaneFilter && r.status === 'fail' && laneForCategory(r.category) !== dashboardLaneFilter) {
+    return false;
+  }
   if (resultFilter === 'all') return true;
   if (resultFilter === 'fail') return r.status === 'fail';
   if (resultFilter === 'issues') {
     return r.status === 'fail' && (r.severity === 'blocker' || r.severity === 'major');
   }
   return true;
+}
+
+async function loadIssueDashboard(run) {
+  const panel = $('issue-dashboard-panel');
+  const el = $('issue-dashboard');
+  if (!panel || !el || !run?.id || run.status !== 'completed') {
+    if (panel) panel.hidden = true;
+    return;
+  }
+  try {
+    const res = await fetch(`${API}/runs/${run.id}/dashboard`);
+    const data = await res.json();
+    if (!data.ok || !data.dashboard) {
+      panel.hidden = true;
+      return;
+    }
+    renderIssueDashboard(run, data.dashboard);
+    panel.hidden = false;
+    updateProcessFlow(detectProcessStep());
+  } catch (_) {
+    panel.hidden = true;
+  }
+}
+
+function renderIssueDashboard(run, dash) {
+  const el = $('issue-dashboard');
+  if (!el) return;
+
+  if (dash.mode === 'batch') {
+    const regressedNote = dash.hasRegression
+      ? `<p class="dashboard-note warn">이전 대비 새로 깨진 페이지·항목이 있습니다. 아래 배치 표와 비교 패널을 확인하세요.</p>`
+      : `<p class="dashboard-note ok">이전 대비 새 회귀 없음 (전체 fail ${dash.totalFail}건은 참고용)</p>`;
+    el.innerHTML = `
+      ${regressedNote}
+      <div class="dashboard-batch-metrics">
+        <div class="dash-metric"><span class="dash-metric-num">${dash.failPages}</span><span class="dash-metric-label">실패 페이지</span></div>
+        <div class="dash-metric"><span class="dash-metric-num">${dash.passPages}</span><span class="dash-metric-label">통과 페이지</span></div>
+        <div class="dash-metric"><span class="dash-metric-num">${dash.totalFail}</span><span class="dash-metric-label">총 fail 항목</span></div>
+      </div>
+      ${
+        dash.topIssues?.length
+          ? `<h4 class="dashboard-subtitle">실패 페이지</h4><ul class="dashboard-issue-list">${dash.topIssues
+              .map(
+                (i) =>
+                  `<li><button type="button" class="dashboard-issue-link" data-page-run="${i.runId || ''}">${escapeHtml(i.title)}</button><span class="dashboard-issue-evidence">${escapeHtml(i.evidence || '')}</span></li>`,
+              )
+              .join('')}</ul>`
+          : '<p class="empty-msg mb-0">실패한 페이지가 없습니다.</p>'
+      }`;
+    el.querySelectorAll('[data-page-run]').forEach((btn) => {
+      const id = btn.dataset.pageRun;
+      if (!id) return;
+      btn.addEventListener('click', () => openPageDetail(id));
+    });
+    return;
+  }
+
+  if (!dash.totalFail) {
+    el.innerHTML = '<p class="dashboard-empty ok mb-0">동작·코드·보안·접근성 점검에서 실패 항목이 없습니다.</p>';
+    return;
+  }
+
+  const laneCards = (dash.lanes || [])
+    .map(
+      (lane) => `
+      <button type="button" class="dashboard-lane ${lane.fail ? 'has-fail' : ''}" data-lane="${lane.id}" ${lane.fail ? '' : 'disabled'}>
+        <span class="dashboard-lane-label">${escapeHtml(lane.label)}</span>
+        <span class="dashboard-lane-count">${lane.fail}</span>
+        <span class="dashboard-lane-hint">${escapeHtml(lane.hint)}</span>
+      </button>`,
+    )
+    .join('');
+
+  el.innerHTML = `
+    <div class="dashboard-lanes">${laneCards}</div>
+    <h4 class="dashboard-subtitle">오류 목록 (중요도 순)</h4>
+    <ul class="dashboard-issue-list" id="dashboard-top-issues">
+      ${(dash.topIssues || [])
+        .map(
+          (i) =>
+            `<li class="dashboard-issue-row" data-lane="${i.lane}">
+              <span class="severity-tag ${severityBadgeClass(i.severity)}">${severityLabel(i.severity)}</span>
+              <span class="dashboard-issue-lane">${escapeHtml(i.laneLabel)}</span>
+              <strong>${escapeHtml(i.title)}</strong>
+              ${i.viewport ? `<span class="dashboard-viewport">[${escapeHtml(i.viewport)}]</span>` : ''}
+              <span class="dashboard-issue-evidence">${escapeHtml((i.evidence || '').slice(0, 120))}${(i.evidence || '').length > 120 ? '…' : ''}</span>
+            </li>`,
+        )
+        .join('')}
+    </ul>
+    <p class="dashboard-foot">공정별 필터 · <button type="button" class="btn-link-inline" id="btn-clear-lane-filter">필터 해제</button></p>`;
+
+  el.onclick = (e) => {
+    if (e.target.closest('#btn-clear-lane-filter')) {
+      dashboardLaneFilter = null;
+      if (lastRun) renderResultsList(lastRun);
+      return;
+    }
+  };
+
+  el.querySelectorAll('.dashboard-lane.has-fail').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      dashboardLaneFilter = btn.dataset.lane;
+      resultFilter = 'fail';
+      $('filter-fail').checked = true;
+      if (lastRun) renderResultsList(lastRun);
+      $('results-list')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  });
+
+  el.querySelectorAll('.dashboard-issue-row').forEach((row) => {
+    row.addEventListener('click', () => {
+      dashboardLaneFilter = row.dataset.lane;
+      resultFilter = 'fail';
+      $('filter-fail').checked = true;
+      if (lastRun) renderResultsList(lastRun);
+      $('results-list')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  });
+}
+
+async function loadExperiencePanel() {
+  const el = $('experience-checklists');
+  if (!el) return;
+  try {
+    const res = await fetchWithTimeout(`${API}/checklists`, {}, 8000);
+    const data = await res.json();
+    if (!data.ok) throw new Error('load failed');
+    const lists = data.checklists || [];
+    if (!lists.length) {
+      el.innerHTML = '<p class="empty-msg mb-0">체크리스트가 없습니다.</p>';
+      return;
+    }
+    el.innerHTML = lists
+      .slice(0, 6)
+      .map((c) => {
+        const n = (c.items || []).length;
+        const auto = (c.items || []).filter((i) => i.inspectType === 'playwright' || i.inspectType === 'ai_code').length;
+        return `<div class="experience-item">
+          <div class="experience-name">${escapeHtml(c.name)}</div>
+          <div class="experience-meta">${n}항목 · 자동화 ${auto} · ${c.kind === 'basic' ? '기본' : '선택'}</div>
+        </div>`;
+      })
+      .join('');
+  } catch (_) {
+    el.innerHTML = '<p class="empty-msg mb-0">체크리스트를 불러오지 못했습니다.</p>';
+  }
 }
 
 function renderResultItem(r) {
@@ -688,9 +931,13 @@ function renderResults(run) {
 
   if (run.status === 'completed') {
     loadInsights(run);
+    loadIssueDashboard(run);
   } else {
     $('insights-panel').hidden = true;
+    $('issue-dashboard-panel').hidden = true;
   }
+
+  updateProcessFlow(detectProcessStep());
 
   const toolbar = document.querySelector('.toolbar');
 
@@ -718,12 +965,15 @@ async function startInspect() {
   $('btn-start').disabled = true;
   autoFilterApplied = false;
   resultFilter = 'all';
+  dashboardLaneFilter = null;
   $('filter-all').checked = true;
+  updateProcessFlow(2);
   const onCloud = $('deploy-banner') && !$('deploy-banner').hidden;
   setStatus(onCloud ? '점검 중입니다… (클라우드에서는 최대 1분 걸릴 수 있습니다)' : '점검을 시작합니다…', 'loading');
   $('progress-section').hidden = false;
   $('results-section').hidden = true;
   $('insights-panel').hidden = true;
+  $('issue-dashboard-panel').hidden = true;
   $('diff-panel').hidden = true;
   $('spinner').hidden = false;
   $('progress-label').textContent = '점검 중…';
@@ -1011,6 +1261,7 @@ $('btn-compare-apply').addEventListener('click', () => {
 document.querySelectorAll('input[name="filter-status"]').forEach((el) => {
   el.addEventListener('change', () => {
     resultFilter = el.value;
+    if (el.value !== 'fail') dashboardLaneFilter = null;
     if (lastRun && lastRun.type !== 'batch') renderResultsList(lastRun);
     else if (lastRun && batchViewRun) openPageDetail(lastRun.id);
   });
@@ -1050,7 +1301,10 @@ async function loadDeployBanner() {
 }
 
 loadChecksList();
+loadExperiencePanel();
 loadRecentRuns();
 loadDeployBanner();
 setupModePanels();
+setupUrlInputs();
+updateProcessFlow(1);
 openRunFromQuery();
